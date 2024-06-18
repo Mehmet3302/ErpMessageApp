@@ -1,0 +1,1 @@
+Kurum içi haberleşme programına destek olarak yapılmıştır. Diğer sistemdeki talebi takiben bütün personellerin tek bir mesajlaşma şablonu üzerinden birbirleriyle diyalog kurabildiği bir web uygulaması. Sistem olarak gerekli smtp kurulumu yapıldıktan sonra, eklenen genel müdürler ile giriş yapılıp, personeller eklenerek sisteme giriş yapılabilir.
