@@ -1,0 +1,227 @@
+﻿@model List<Erp___Kurum_Ici_Haberlesme_2.Models.Message>
+@{
+    var personelList = (List<AppUser>)ViewBag.Personeller;
+}
+
+<div id="alertContainer" style="position: fixed; top: 20px; right: 20px; z-index: 1000;"></div>
+
+<div class="container">
+    <h1 class="text-center">MESKİ MESAJLAŞMA</h1>
+    <div class="row">
+        <!-- Sol Kolon: Personeller -->
+        <div class="col-md-3">
+            <div class="container mt-4">
+                <div class="personel-list">
+                    <h3>Personeller</h3>
+                    @foreach (var altBirim in personelList.Select(u => u.AltBirim?.AltBirimAdı).Distinct().OrderBy(ab => ab))
+                    {
+                        <h4 class="altbirim-header">@altBirim</h4>
+                        <div class="personel-container">
+                            @foreach (var personel in personelList.Where(p => p.AltBirim?.AltBirimAdı == altBirim))
+                            {
+                                <div class="personel-item @(personel.OnlineDurumu ? "online" : "offline")">
+                                    <span>@personel.PersonelAdSoyad</span>
+                                    <span class="status-indicator @(personel.OnlineDurumu ? "online" : "offline")">
+                                        @(personel.OnlineDurumu ? "Online" : "Offline")
+                                    </span>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Sağ Kolon: Mesajlaşma -->
+        <div class="col-md-9">
+            <div class="messages">
+                <ul class="list-group" id="messagesList">
+                    @foreach (var message in Model)
+                    {
+                        <li class="list-group-item message-item mb-2 p-3">
+                            <div class="message-header d-flex justify-content-between">
+                                <strong>@message.User.PersonelAdSoyad</strong>
+                                <span class="message-timestamp">@message.Tarih.ToString("dd.MM.yyyy HH:mm")</span>
+                            </div>
+                            <div class="message-content mt-2">@message.MessageIcerik</div>
+                            @{
+                                var hasDeletePermission = User.IsInRole("Bilişim Teknolojileri Genel Müdürü") || User.IsInRole("Satın Alma Genel Müdürü") || User.IsInRole("Muhasebe Genel Müdürü");
+                            }
+                            @if (hasDeletePermission)
+                            {
+                                <button class="btn btn-danger btn-sm mt-2 delete-message" data-message-id="@message.MessageId">Sil</button>
+                            }
+                        </li>
+                    }
+                </ul>
+            </div>
+            <form id="sendMessageForm">
+                <div class="input-group mt-3">
+                    <input type="text" class="form-control" id="messageInput" placeholder="Mesajınızı yazın...">
+                    <div class="input-group-append">
+                        <button class="btn btn-primary" type="submit">Gönder</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    .messages {
+        max-height: 400px;
+        overflow-y: scroll;
+        border: 1px solid #ccc;
+        margin-bottom: 15px;
+    }
+
+    .message-item {
+        border: 1px solid #f0f0f0;
+        padding: 15px;
+        margin: 10px 0;
+        background-color: #ffffff;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .message-header {
+        display: flex;
+        justify-content: space-between;
+        font-weight: bold;
+    }
+
+    .message-timestamp {
+        font-size: 0.8rem;
+        color: #888;
+    }
+
+    .message-content {
+        margin-top: 10px;
+    }
+
+    .list-group-item {
+        font-size: 0.9rem;
+    }
+
+    .personel-list h4 {
+        cursor: pointer;
+        margin-top: 20px;
+        font-weight: bold;
+    }
+
+    .personel-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 15px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        margin-bottom: 10px;
+    }
+
+        .personel-item.online {
+            background-color: #e0f7e0;
+        }
+
+        .personel-item.offline {
+            background-color: #f7e0e0;
+        }
+
+    .status-indicator {
+        font-weight: bold;
+    }
+
+        .status-indicator.online {
+            color: green;
+        }
+
+        .status-indicator.offline {
+            color: red;
+        }
+
+    .personel-list .personel-container {
+        display: none;
+        margin-left: 20px;
+    }
+</style>
+
+
+@section Scripts {
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            $('#sendMessageForm').submit(function (e) {
+                e.preventDefault();
+
+                var messageInput = $('#messageInput');
+                var message = messageInput.val();
+
+                if ($.trim(message) === '') {
+                    return;
+                }
+
+                $.ajax({
+                    url: '/Message/SendMessage',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ content: message }), // JSON.stringify kullanarak message'ı gönder
+                    success: function () {
+                        messageInput.val('');
+                        loadMessages();
+                    },
+                    error: function () {
+                        alert('Mesaj gönderilirken bir hata oluştu.');
+                    }
+                });
+            });
+
+            function loadMessages() {
+                $('#messagesList').load(location.href + ' #messagesList>*', function () {
+                    var messagesContainer = $('.messages');
+                    messagesContainer.scrollTop(messagesContainer[0].scrollHeight);
+                });
+            }
+
+            setInterval(loadMessages, 5000);
+
+            $(document).on('click', '.altbirim-header', function () {
+                $(this).next('.personel-container').slideToggle();
+            });
+
+            $(document).on('click', '.delete-message', function () {
+                var messageId = $(this).data("message-id");
+
+                $.ajax({
+                    url: '/Message/DeleteMessage',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ MessageId: messageId }), // JSON.stringify kullanarak messageId'yi gönder
+                    success: function (response) {
+                        if (response.success) {
+                            loadMessages();
+                            showAlert('Mesaj başarıyla silindi.', 'success');
+                        } else {
+                            showAlert(response.message, 'danger');
+                        }
+                    },
+                    error: function () {
+                        showAlert('Mesaj silinirken bir hata oluştu.', 'danger');
+                    }
+                });
+            });
+
+            function showAlert(message, type) {
+                var alertContainer = $('#alertContainer');
+                var alertHtml = '<div class="alert alert-' + type + ' alert-dismissible fade show" role="alert">' +
+                    message +
+                    '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>' +
+                    '</div>';
+                alertContainer.html(alertHtml);
+                setTimeout(function () {
+                    alertContainer.html('');
+                }, 5000);
+            }
+
+            loadMessages();
+        });
+    </script>
+}
